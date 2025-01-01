@@ -1,0 +1,3 @@
+[submodule "ARIUS_Projekt_frontend"]
+	path = ARIUS_Projekt_frontend
+	url = https://github.com/franciszekfabisiak/ARIUS_Projekt_frontend.git
