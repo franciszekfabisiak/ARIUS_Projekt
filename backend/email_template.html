@@ -1,0 +1,17 @@
+<html>
+
+<body>
+    <h1>Thank you for your order, {{ customer_name }}!</h1>
+    <p>You ordered the following pizzas:</p>
+    <ul>
+        {% for pizza in pizzas %}
+        <li>
+            <strong>{{ pizza.name }}</strong><br />
+            Toppings: {{ pizza.toppings | join(", ") }}
+        </li>
+        {% endfor %}
+    </ul>
+    <p>We hope you enjoy your meal!</p>
+</body>
+
+</html>
