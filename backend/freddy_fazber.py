@@ -11,6 +11,7 @@ import smtplib
 # Email details
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email.mime.image import MIMEImage
 from jinja2 import Template
 import threading
 
@@ -18,16 +19,39 @@ import threading
 def send_email_async(order_details, recipient_email):
     def send_email():
         sender_email = "freddyfivebearurur@gmail.com"
-
         app_password = "eqtm mkmm agud ngsj"
 
-        msg = MIMEMultipart("alternative")
+        # Create the email message
+        msg = MIMEMultipart("related")  # Use "related" to allow inline images
         msg["Subject"] = "Your Pizza Order Details"
         msg["From"] = sender_email
         msg["To"] = recipient_email
 
-        msg.attach(MIMEText(order_details, "html"))
+        # HTML content with a reference to the inline logo image
+        html_content = f"""
+        <html>
+        <body>
+            <div style="text-align: center;">
+                <img src="cid:logo" alt="Pizza Restaurant Logo" style="width: 600px; height: auto;" />
+            </div>
+            {order_details}
+        </body>
+        </html>
+        """
+        msg.attach(MIMEText(html_content, "html"))
 
+        # Attach the logo image
+        logo_path = "static/pizzas/logo/freddy_logo.png"  # Replace with the actual path to your logo
+        try:
+            with open(logo_path, "rb") as img_file:
+                logo_image = MIMEImage(img_file.read())
+                logo_image.add_header("Content-ID", "<logo>")  # Assign a Content-ID
+                msg.attach(logo_image)
+        except Exception as e:
+            print(f"Error attaching the logo image: {e}")
+            return
+
+        # Send the email
         try:
             with smtplib.SMTP("smtp.gmail.com", 587) as server:
                 server.starttls()

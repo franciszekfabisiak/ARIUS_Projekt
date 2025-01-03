@@ -1,17 +1,13 @@
 <html>
 
-<body>
-    <h1>Thank you for your order, {{ customer_name }}!</h1>
+<body style="text-align: center; font-family: Arial, sans-serif; line-height: 1.6;">
+    <h1 style="margin: 20px 0;">Thank you for your order!</h1>
     <p>You ordered the following pizzas:</p>
-    <ul>
-        {% for pizza in pizzas %}
-        <li>
-            <strong>{{ pizza.name }}</strong><br />
-            Toppings: {{ pizza.toppings | join(", ") }}
-        </li>
-        {% endfor %}
+    <ul style="list-style-type: none; padding: 0;">
+        <li style="margin: 10px 0;"><strong>Margherita</strong> - Toppings: Cheese, Basil</li>
+        <li style="margin: 10px 0;"><strong>Pepperoni</strong> - Toppings: Pepperoni, Cheese</li>
     </ul>
-    <p>We hope you enjoy your meal!</p>
+    <p style="margin: 20px 0;">We hope you enjoy your meal!</p>
 </body>
 
 </html>
