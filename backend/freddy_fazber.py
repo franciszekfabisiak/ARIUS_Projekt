@@ -4,7 +4,42 @@ from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 import re
-from sendemail import send_email
+from jinja2 import Template
+from flask import render_template
+import smtplib
+
+# Email details
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from jinja2 import Template
+import threading
+
+
+def send_email_async(order_details, recipient_email):
+    def send_email():
+        sender_email = "freddyfivebearurur@gmail.com"
+
+        app_password = "eqtm mkmm agud ngsj"
+
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = "Your Pizza Order Details"
+        msg["From"] = sender_email
+        msg["To"] = recipient_email
+
+        msg.attach(MIMEText(order_details, "html"))
+
+        try:
+            with smtplib.SMTP("smtp.gmail.com", 587) as server:
+                server.starttls()
+                server.login(sender_email, app_password)
+                server.sendmail(sender_email, recipient_email, msg.as_string())
+            print("Email sent successfully!")
+        except Exception as e:
+            print(f"Error: {e}")
+
+    # Run the email sending function in a new thread to avoid blocking the server
+    threading.Thread(target=send_email).start()
+
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
@@ -44,20 +79,27 @@ class Order(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
+    # Add the relationship to OrderItem
+    items = db.relationship("OrderItem", backref="order", lazy=True)
+
+
+# Association table for OrderItem and Topping
+order_item_topping = db.Table(
+    "order_item_topping",
+    db.Column(
+        "order_item_id", db.Integer, db.ForeignKey("order_item.id"), primary_key=True
+    ),
+    db.Column("topping_id", db.Integer, db.ForeignKey("topping.id"), primary_key=True),
+)
+
 
 class OrderItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     order_id = db.Column(db.Integer, db.ForeignKey("order.id"), nullable=False)
     pizza_id = db.Column(db.Integer, db.ForeignKey("pizza.id"), nullable=False)
-    toppings = db.relationship("OrderItemTopping", backref="order_item", lazy=True)
-
-
-class OrderItemTopping(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    order_item_id = db.Column(
-        db.Integer, db.ForeignKey("order_item.id"), nullable=False
+    toppings = db.relationship(
+        "Topping", secondary=order_item_topping, backref="order_items", lazy="dynamic"
     )
-    topping_id = db.Column(db.Integer, db.ForeignKey("topping.id"), nullable=False)
 
 
 class Rating(db.Model):
@@ -75,7 +117,9 @@ def seed_data():
         hashed_password2 = generate_password_hash("password456", method="pbkdf2:sha256")
 
         user1 = User(
-            username="john_doe", email="john_doe@example.com", password=hashed_password1
+            username="john_doe",
+            email="freddyfivebearurur@gmail.com",
+            password=hashed_password1,
         )
         user2 = User(
             username="jane_doe", email="jane_doe@example.com", password=hashed_password2
@@ -203,27 +247,56 @@ def create_order():
         return jsonify({"message": "Invalid input"}), 400
 
     try:
+        # Create the order
         order = Order(user_id=data["user_id"])
         db.session.add(order)
         db.session.commit()
 
+        # Add order items with toppings
         for item in data["items"]:
             order_item = OrderItem(order_id=order.id, pizza_id=item["pizza_id"])
             db.session.add(order_item)
-            db.session.commit()
 
-            for topping_id in item.get("topping_ids", []):
-                order_item_topping = OrderItemTopping(
-                    order_item_id=order_item.id, topping_id=topping_id
-                )
-                db.session.add(order_item_topping)
+            # Associate toppings directly using the many-to-many relationship
+            topping_ids = item.get("topping_ids", [])
+            if topping_ids:
+                toppings = Topping.query.filter(Topping.id.in_(topping_ids)).all()
+                order_item.toppings.extend(toppings)
 
         db.session.commit()
+
+        # Retrieve the customer and order details for email
+        customer = db.session.get(User, order.user_id)  # Updated to use session.get()
+        pizzas = []
+        for order_item in order.items:
+            pizza = db.session.get(
+                Pizza, order_item.pizza_id
+            )  # Updated to use session.get()
+            toppings = [topping.name for topping in order_item.toppings]
+            pizzas.append({"name": pizza.name, "toppings": toppings})
+
+        # Prepare the email content using the template
+        with open("email_template.html", "r") as templatefile:
+            template_content = templatefile.read()
+
+        # Create the template object
+        template = Template(template_content)
+        email_content = template.render(customer_name=customer.username, pizzas=pizzas)
+
+        send_email_async(email_content, customer.email)
+
         return (
-            jsonify({"message": "Order created successfully", "order_id": order.id}),
+            jsonify(
+                {
+                    "message": "Order created successfully",
+                    "order_id": order.id,
+                }
+            ),
             201,
         )
+
     except Exception as e:
+        db.session.rollback()
         return jsonify({"message": "Order creation failed", "error": str(e)}), 500
 
 
@@ -280,7 +353,7 @@ def rate_pizzeria():
 
 if __name__ == "__main__":
     with app.app_context():
+        db.drop_all()
         db.create_all()
         seed_data()
-        send_email("emiliankraska2@wp.pl")
     app.run(host="0.0.0.0", port=5000)
