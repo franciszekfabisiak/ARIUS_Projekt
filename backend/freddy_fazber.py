@@ -75,6 +75,19 @@ def seed_data():
         pizzas = [
             Pizza(name='Margherita', details='yummers1', price=7.99, image_path='static/pizzas/margherita.jpg'),
             Pizza(name='Pepperoni', details='yummers2', price=8.99, image_path='static/pizzas/pepperoni.jpg'),
+            Pizza(name='Veggie', details='yummers3', price=9.99),
+            Pizza(name='Veggie', details='yummers3', price=9.99),
+            Pizza(name='Veggie', details='yummers3', price=9.99),
+            Pizza(name='Veggie', details='yummers3', price=9.99),
+            Pizza(name='Veggie', details='yummers3', price=9.99),
+            Pizza(name='Veggie', details='yummers3', price=9.99),
+            Pizza(name='Veggie', details='yummers3', price=9.99),
+            Pizza(name='Veggie', details='yummers3', price=9.99),
+            Pizza(name='Veggie', details='yummers3', price=9.99),
+            Pizza(name='Veggie', details='yummers3', price=9.99),
+            Pizza(name='Veggie', details='yummers3', price=9.99),
+            Pizza(name='Veggie', details='yummers3', price=9.99),
+            Pizza(name='Veggie', details='yummers3', price=9.99),
             Pizza(name='Veggie', details='yummers3', price=9.99)
         ]
 
