@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, abort
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -85,6 +85,9 @@ class User(db.Model):
     username = db.Column(db.String(80), nullable=False, unique=True)
     email = db.Column(db.String(120), nullable=False, unique=True)
     password = db.Column(db.String(200), nullable=False)
+    name = db.Column(db.String(80), nullable=False)
+    surname = db.Column(db.String(80), nullable=False)
+    telephone_number = db.Column(db.String(20), nullable=False)
 
 
 class Pizza(db.Model):
@@ -149,9 +152,18 @@ def seed_data():
             username="john_doe",
             email="freddyfivebearurur@gmail.com",
             password=hashed_password1,
+            name="John",  # Add first name
+            surname="Doe",  # Add last name
+            telephone_number="1234567890",  # Add telephone number
         )
+
         user2 = User(
-            username="jane_doe", email="jane_doe@example.com", password=hashed_password2
+            username="jane_doe",
+            email="jane_doe@example.com",
+            password=hashed_password2,
+            name="Jane",  # Add first name
+            surname="Doe",  # Add last name
+            telephone_number="0987654321",  # Add telephone number
         )
 
         pizzas = [
@@ -258,8 +270,6 @@ def get_pizzas():
                 "image_url": image_url,
             }
         )
-
-    return jsonify(response)
 
     return jsonify(response)
 
@@ -384,6 +394,47 @@ def rate_pizzeria():
         return jsonify({"message": "Thank you for your feedback!"}), 201
     except Exception as e:
         return jsonify({"message": "Rating submission failed", "error": str(e)}), 500
+
+
+@app.route("/update_user/<int:id>", methods=["PUT"])
+def update_user(id):
+    # Find the user by ID using get_or_404, which raises a 404 error if not found
+    user = User.query.get_or_404(id)
+
+    # Get the updated data from the request
+    data = request.get_json()
+
+    # Update user details (validate the input as necessary)
+    if "name" in data:
+        user.name = data["name"]
+    if "surname" in data:
+        user.surname = data["surname"]
+    if "telephone_number" in data:
+        user.telephone_number = data["telephone_number"]
+
+    # Optionally, if you want to allow updating other fields like password or email
+    if "password" in data:
+        user.password = data["password"]
+
+    if "email" in data:
+        user.email = data["email"]
+
+    # Commit the changes to the database
+    db.session.commit()
+
+    return (
+        jsonify(
+            {
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "name": user.name,
+                "surname": user.surname,
+                "telephone_number": user.telephone_number,
+            }
+        ),
+        200,
+    )
 
 
 if __name__ == "__main__":
