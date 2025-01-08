@@ -15,6 +15,11 @@ from email.mime.image import MIMEImage
 from jinja2 import Template
 import threading
 
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.DEBUG)
+
 
 def send_email_async(order_details, recipient_email):
     def send_email():
@@ -239,16 +244,22 @@ def get_pizzas():
     pizzas = Pizza.query.all()
     response = []
 
+    base_url = request.host_url.rstrip("/")
     for pizza in pizzas:
+        image_url = f"{base_url}/{pizza.image_path}"
+        logging.debug(f"Constructed image URL: {image_url}")  # Log the image URL
+
         response.append(
             {
                 "id": pizza.id,
                 "name": pizza.name,
                 "details": pizza.details,
                 "price": pizza.price,
-                "image_url": f"http://localhost:5000/{pizza.image_path}",  # Full image URL
+                "image_url": image_url,
             }
         )
+
+    return jsonify(response)
 
     return jsonify(response)
 
