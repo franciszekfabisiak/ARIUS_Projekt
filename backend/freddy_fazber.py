@@ -147,6 +147,7 @@ def seed_data():
     if not User.query.first():
         hashed_password1 = generate_password_hash("password123", method="pbkdf2:sha256")
         hashed_password2 = generate_password_hash("password456", method="pbkdf2:sha256")
+        hashed_password3 = generate_password_hash("111111", method="pbkdf2:sha256")
 
         user1 = User(
             username="john_doe",
@@ -164,6 +165,14 @@ def seed_data():
             name="Jane",  # Add first name
             surname="Doe",  # Add last name
             telephone_number="0987654321",  # Add telephone number
+        )
+        user3 = User(
+            username="1",
+            email="1@example.com",
+            password=hashed_password3,
+            name="1",  # Add first name
+            surname="1",  # Add last name
+            telephone_number="111111111",  # Add telephone number
         )
 
         pizzas = [
@@ -188,11 +197,13 @@ def seed_data():
             Topping(name="Bacon", price=2.50),
         ]
 
-        db.session.add_all([user1, user2] + pizzas + toppings)
+        db.session.add_all([user1, user2, user3] + pizzas + toppings)
         db.session.commit()
 
 
 # Routes
+
+
 @app.route("/register", methods=["POST"])
 def register():
     data = request.json
@@ -203,11 +214,14 @@ def register():
         or "username" not in data
         or "password" not in data
         or "email" not in data
+        or "name" not in data
+        or "surname" not in data
+        or "telephone_number" not in data
     ):
         return (
             jsonify(
                 {
-                    "message": "Invalid input. Username, email, and password are required."
+                    "message": "Invalid input. Username, email, password, name, surname, and telephone_number are required."
                 }
             ),
             400,
@@ -216,6 +230,9 @@ def register():
     username = data["username"]
     email = data["email"]
     password = data["password"]
+    name = data["name"]
+    surname = data["surname"]
+    telephone_number = data["telephone_number"]
 
     # Validate email format
     email_regex = r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"
@@ -233,12 +250,21 @@ def register():
         hashed_password = generate_password_hash(password, method="pbkdf2:sha256")
 
         # Create the new user
-        new_user = User(username=username, email=email, password=hashed_password)
+        new_user = User(
+            username=username,
+            email=email,
+            password=hashed_password,
+            name=name,
+            surname=surname,
+            telephone_number=telephone_number,
+        )
         db.session.add(new_user)
         db.session.commit()
 
         return jsonify({"message": "User created successfully"}), 201
     except Exception as e:
+        # Improved error logging for debugging
+        app.logger.error(f"Error during registration: {str(e)}")
         return jsonify({"message": "Registration failed", "error": str(e)}), 500
 
 
