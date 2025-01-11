@@ -338,23 +338,27 @@ def create_order():
         db.session.commit()
 
         # Retrieve the customer and order details for email
-        customer = db.session.get(User, order.user_id)  # Updated to use session.get()
+        customer = db.session.get(
+            User, order.user_id
+        )  # Use session.get for better performance
         pizzas = []
         for order_item in order.items:
-            pizza = db.session.get(
-                Pizza, order_item.pizza_id
-            )  # Updated to use session.get()
+            pizza = db.session.get(Pizza, order_item.pizza_id)  # Fetch pizza details
             toppings = [topping.name for topping in order_item.toppings]
             pizzas.append({"name": pizza.name, "toppings": toppings})
 
-        # Prepare the email content using the template
+        # Prepare the email content using the dynamic template
         with open("email_template.html", "r") as templatefile:
             template_content = templatefile.read()
 
-        # Create the template object
+        # Render the email template with order details
         template = Template(template_content)
-        email_content = template.render(customer_name=customer.username, pizzas=pizzas)
+        email_content = template.render(
+            customer_name=customer.username,  # Customer's name
+            pizzas=pizzas,  # List of pizzas with their toppings
+        )
 
+        # Send the email asynchronously
         send_email_async(email_content, customer.email)
 
         return (
