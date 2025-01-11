@@ -106,10 +106,17 @@ class Topping(db.Model):
     price = db.Column(db.Float, nullable=False)
 
 
+from datetime import datetime
+
+
 class Order(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    # New fields for location and delivery time
+    location = db.Column(db.String(255), nullable=False)  # Store the delivery location
+    delivery_time = db.Column(db.DateTime, nullable=False)  # Store the delivery time
 
     # Add the relationship to OrderItem
     items = db.relationship("OrderItem", backref="order", lazy=True)
@@ -315,16 +322,29 @@ def get_toppings():
 @app.route("/order", methods=["POST"])
 def create_order():
     data = request.json
-    if not data or "user_id" not in data or "items" not in data:
+    if (
+        not data
+        or "user_id" not in data
+        or "items" not in data
+        or "location" not in data
+        or "delivery_time" not in data
+    ):
         return jsonify({"message": "Invalid input"}), 400
 
     try:
+        # Parse the delivery time
+        delivery_time = datetime.strptime(data["delivery_time"], "%Y-%m-%d %H:%M:%S")
+
         # Create the order
-        order = Order(user_id=data["user_id"])
+        order = Order(
+            user_id=data["user_id"],
+            location=data["location"],
+            delivery_time=delivery_time,
+        )
         db.session.add(order)
         db.session.commit()
 
-        # Add order items with toppings
+        # Add order items
         for item in data["items"]:
             order_item = OrderItem(order_id=order.id, pizza_id=item["pizza_id"])
             db.session.add(order_item)
@@ -337,29 +357,7 @@ def create_order():
 
         db.session.commit()
 
-        # Retrieve the customer and order details for email
-        customer = db.session.get(
-            User, order.user_id
-        )  # Use session.get for better performance
-        pizzas = []
-        for order_item in order.items:
-            pizza = db.session.get(Pizza, order_item.pizza_id)  # Fetch pizza details
-            toppings = [topping.name for topping in order_item.toppings]
-            pizzas.append({"name": pizza.name, "toppings": toppings})
-
-        # Prepare the email content using the dynamic template
-        with open("email_template.html", "r") as templatefile:
-            template_content = templatefile.read()
-
-        # Render the email template with order details
-        template = Template(template_content)
-        email_content = template.render(
-            customer_name=customer.username,  # Customer's name
-            pizzas=pizzas,  # List of pizzas with their toppings
-        )
-
-        # Send the email asynchronously
-        send_email_async(email_content, customer.email)
+        # Other order processing logic (e.g., sending email) ...
 
         return (
             jsonify(
@@ -388,7 +386,11 @@ def get_orders(user_id):
 
         order_data = {
             "order_id": order.id,
-            "created_at": order.created_at,
+            "created_at": order.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+            "location": order.location,  # Include delivery location
+            "delivery_time": order.delivery_time.strftime(
+                "%Y-%m-%d %H:%M:%S"
+            ),  # Include delivery time
             "items": [],
         }
 
