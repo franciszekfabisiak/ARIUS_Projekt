@@ -344,7 +344,7 @@ def create_order():
         db.session.add(order)
         db.session.commit()
 
-        # Add order items
+        # Add order items with toppings
         for item in data["items"]:
             order_item = OrderItem(order_id=order.id, pizza_id=item["pizza_id"])
             db.session.add(order_item)
@@ -357,7 +357,31 @@ def create_order():
 
         db.session.commit()
 
-        # Other order processing logic (e.g., sending email) ...
+        # Retrieve the customer and order details for email
+        customer = db.session.get(
+            User, order.user_id
+        )  # Use session.get for better performance
+        pizzas = []
+        for order_item in order.items:
+            pizza = db.session.get(Pizza, order_item.pizza_id)  # Fetch pizza details
+            toppings = [topping.name for topping in order_item.toppings]
+            pizzas.append({"name": pizza.name, "toppings": toppings})
+
+        # Prepare the email content using the dynamic template
+        with open("email_template.html", "r") as templatefile:
+            template_content = templatefile.read()
+
+        # Render the email template with order details
+        template = Template(template_content)
+        email_content = template.render(
+            customer_name=customer.username,  # Customer's name
+            pizzas=pizzas,  # List of pizzas with their toppings
+            delivery_time=order.delivery_time,  # Delivery time
+            location=order.location,  # Location
+        )
+
+        # Send the email asynchronously
+        send_email_async(email_content, customer.email)
 
         return (
             jsonify(
