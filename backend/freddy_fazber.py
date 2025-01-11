@@ -139,6 +139,7 @@ class Rating(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     order_id = db.Column(db.Integer, db.ForeignKey("order.id"), nullable=False)
     rating = db.Column(db.Integer, nullable=False)
+    comment = db.Column(db.Text, nullable=True)  # Optional comment field
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
 
@@ -373,26 +374,42 @@ def create_order():
 
 @app.route("/orders/<int:user_id>", methods=["GET"])
 def get_orders(user_id):
+    # Query orders for the specified user
     orders = Order.query.filter_by(user_id=user_id).all()
     response = []
+
     for order in orders:
+        # Query all order items for the current order
         items = OrderItem.query.filter_by(order_id=order.id).all()
-        response.append(
-            {
-                "order_id": order.id,
-                "created_at": order.created_at,
-                "items": [
-                    {
-                        "pizza": Pizza.query.get(item.pizza_id).name,
-                        "toppings": [
-                            Topping.query.get(topping.topping_id).name
-                            for topping in item.toppings
-                        ],
-                    }
-                    for item in items
-                ],
-            }
-        )
+
+        order_data = {
+            "order_id": order.id,
+            "created_at": order.created_at,
+            "items": [],
+        }
+
+        for item in items:
+            # Fetch the pizza for the current order item
+            pizza = Pizza.query.get(item.pizza_id)
+            if not pizza:
+                app.logger.error(
+                    f"Pizza with ID {item.pizza_id} not found for order {order.id}"
+                )
+                continue
+
+            # Retrieve all toppings for the current order item
+            toppings = [topping.name for topping in item.toppings]
+
+            # Append the pizza and toppings info to the order's items list
+            order_data["items"].append(
+                {
+                    "pizza": pizza.name,
+                    "toppings": toppings,
+                }
+            )
+
+        response.append(order_data)
+
     return jsonify(response)
 
 
@@ -412,11 +429,21 @@ def rate_pizzeria():
         return jsonify({"message": "Invalid order for this user"}), 400
 
     try:
+        # Include the optional comment field
         rating = Rating(
-            user_id=data["user_id"], order_id=data["order_id"], rating=data["rating"]
+            user_id=data["user_id"],
+            order_id=data["order_id"],
+            rating=data["rating"],
+            comment=data.get("comment"),  # Use .get() to handle optional field
         )
         db.session.add(rating)
         db.session.commit()
+
+        # Print the received rating data into the console for debugging purposes
+        print(
+            f"Received Rating: User ID: {data['user_id']}, Order ID: {data['order_id']}, Rating: {data['rating']}, Comment: {data.get('comment', 'No comment')}"
+        )
+
         return jsonify({"message": "Thank you for your feedback!"}), 201
     except Exception as e:
         return jsonify({"message": "Rating submission failed", "error": str(e)}), 500
