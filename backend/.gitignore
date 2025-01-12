@@ -11,3 +11,4 @@ coverage.xml
 
 # Ignore any temporary pytest output files
 *.log
+*.pdf

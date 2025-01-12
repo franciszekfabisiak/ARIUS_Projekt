@@ -12,6 +12,8 @@ import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
+from email.mime.application import MIMEApplication
+
 from jinja2 import Template
 import threading
 
@@ -19,9 +21,49 @@ import logging
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
+from fpdf import FPDF
+import os
 
 
-def send_email_async(order_details, recipient_email):
+from fpdf import FPDF
+
+
+from fpdf import FPDF
+
+
+def generate_invoice_pdf(order, customer, pizzas):
+
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", size=12)
+    pdf.cell(200, 10, txt=f"Invoice for Order #{order.id}", ln=True, align="C")
+    pdf.cell(200, 10, txt=f"Customer: {customer.username}", ln=True)
+    pdf.cell(200, 10, txt=f"Delivery Location: {order.location}", ln=True)
+    pdf.cell(200, 10, txt=f"Delivery Time: {order.delivery_time}", ln=True)
+    pdf.ln(10)
+
+    pdf.cell(200, 10, txt="Items Ordered:", ln=True)
+
+    total_cost = 0
+    for pizza in pizzas:
+        toppings = ", ".join(pizza["toppings"]) if pizza["toppings"] else "No toppings"
+        item_price = pizza["price"]
+        total_cost += item_price
+        pdf.cell(
+            200, 10, txt=f"- {pizza['name']} ({toppings}) - ${item_price:.2f}", ln=True
+        )
+
+    pdf.ln(10)
+    pdf.cell(200, 10, txt=f"Total Cost: ${total_cost:.2f}", ln=True)
+
+    filename = f"invoice_order_{order.id}.pdf"
+    filepath = os.path.join("invoices", filename)
+    os.makedirs("invoices", exist_ok=True)
+    pdf.output(filepath)
+    return filepath
+
+
+def send_email_async_with_invoice(order_details, recipient_email, pdf_path):
     def send_email():
         sender_email = "freddyfivebearurur@gmail.com"
         app_password = "eqtm mkmm agud ngsj"
@@ -32,7 +74,7 @@ def send_email_async(order_details, recipient_email):
         msg["From"] = sender_email
         msg["To"] = recipient_email
 
-        # HTML content with a reference to the inline logo image
+        # HTML content with inline logo reference
         html_content = f"""
         <html>
         <body>
@@ -46,14 +88,26 @@ def send_email_async(order_details, recipient_email):
         msg.attach(MIMEText(html_content, "html"))
 
         # Attach the logo image
-        logo_path = "static/pizzas/logo/freddy_logo.png"  # Replace with the actual path to your logo
+        logo_path = "static/pizzas/logo/freddy_logo.png"
         try:
             with open(logo_path, "rb") as img_file:
                 logo_image = MIMEImage(img_file.read())
-                logo_image.add_header("Content-ID", "<logo>")  # Assign a Content-ID
+                logo_image.add_header("Content-ID", "<logo>")
                 msg.attach(logo_image)
         except Exception as e:
             print(f"Error attaching the logo image: {e}")
+            return
+
+        # Attach the invoice PDF
+        try:
+            with open(pdf_path, "rb") as pdf_file:
+                pdf_attachment = MIMEApplication(pdf_file.read(), _subtype="pdf")
+                pdf_attachment.add_header(
+                    "Content-Disposition", "attachment", filename="Faktura.pdf"
+                )
+                msg.attach(pdf_attachment)
+        except Exception as e:
+            print(f"Error attaching the PDF: {e}")
             return
 
         # Send the email
@@ -66,7 +120,6 @@ def send_email_async(order_details, recipient_email):
         except Exception as e:
             print(f"Error: {e}")
 
-    # Run the email sending function in a new thread to avoid blocking the server
     threading.Thread(target=send_email).start()
 
 
@@ -352,7 +405,7 @@ def create_order():
             delivery_time=delivery_time,
         )
         db.session.add(order)
-        db.session.commit()
+        db.session.commit()  # Commit here to assign the order ID
 
         # Add order items with toppings
         for item in data["items"]:
@@ -367,15 +420,22 @@ def create_order():
 
         db.session.commit()
 
-        # Retrieve the customer and order details for email
-        customer = db.session.get(
-            User, order.user_id
-        )  # Use session.get for better performance
+        # Retrieve the customer and order details for email and PDF
+        customer = db.session.get(User, order.user_id)
         pizzas = []
         for order_item in order.items:
             pizza = db.session.get(Pizza, order_item.pizza_id)  # Fetch pizza details
             toppings = [topping.name for topping in order_item.toppings]
-            pizzas.append({"name": pizza.name, "toppings": toppings})
+            pizzas.append(
+                {
+                    "name": pizza.name,
+                    "toppings": toppings,
+                    "price": pizza.price,  # Add the pizza price
+                }
+            )
+
+        # Generate invoice PDF with a unique filename using order ID
+        pdf_path = generate_invoice_pdf(order, customer, pizzas)
 
         # Prepare the email content using the dynamic template
         with open("email_template.html", "r") as templatefile:
@@ -384,14 +444,14 @@ def create_order():
         # Render the email template with order details
         template = Template(template_content)
         email_content = template.render(
-            customer_name=customer.username,  # Customer's name
-            pizzas=pizzas,  # List of pizzas with their toppings
-            delivery_time=order.delivery_time,  # Delivery time
-            location=order.location,  # Location
+            customer_name=customer.username,
+            pizzas=pizzas,
+            delivery_time=order.delivery_time,
+            location=order.location,
         )
 
-        # Send the email asynchronously
-        send_email_async(email_content, customer.email)
+        # Send the email asynchronously with the PDF attachment
+        send_email_async_with_invoice(email_content, customer.email, pdf_path)
 
         return (
             jsonify(
