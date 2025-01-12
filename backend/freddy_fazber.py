@@ -32,7 +32,6 @@ from fpdf import FPDF
 
 
 def generate_invoice_pdf(order, customer, pizzas):
-
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", size=12)
@@ -46,14 +45,40 @@ def generate_invoice_pdf(order, customer, pizzas):
 
     total_cost = 0
     for pizza in pizzas:
-        toppings = ", ".join(pizza["toppings"]) if pizza["toppings"] else "No toppings"
-        item_price = pizza["price"]
-        total_cost += item_price
+        # Add the base pizza price
+        base_price = pizza["price"]
         pdf.cell(
-            200, 10, txt=f"- {pizza['name']} ({toppings}) - ${item_price:.2f}", ln=True
+            200, 10, txt=f"- {pizza['name']} (Base Price: ${base_price:.2f})", ln=True
         )
 
-    pdf.ln(10)
+        # Calculate and display toppings with their prices
+        if pizza["toppings"]:
+            toppings_cost = 0
+            pdf.set_font("Arial", size=10)  # Smaller font for toppings
+            for topping in pizza["toppings"]:
+                # Fetch topping price from database
+                topping_obj = Topping.query.filter_by(name=topping).first()
+                if topping_obj:
+                    topping_price = topping_obj.price
+                    toppings_cost += topping_price
+                    pdf.cell(
+                        200, 8, txt=f"    + {topping} (${topping_price:.2f})", ln=True
+                    )
+
+            # Display subtotal for this pizza with toppings
+            pdf.set_font("Arial", size=12)
+            item_total = base_price + toppings_cost
+            pdf.cell(200, 10, txt=f"    Subtotal: ${item_total:.2f}", ln=True)
+            total_cost += item_total
+        else:
+            total_cost += base_price
+            pdf.cell(200, 8, txt="    No toppings", ln=True)
+            pdf.cell(200, 10, txt=f"    Subtotal: ${base_price:.2f}", ln=True)
+
+        pdf.ln(5)  # Add some space between pizza items
+
+    pdf.ln(5)
+    pdf.set_font("Arial", "B", size=12)  # Bold font for total
     pdf.cell(200, 10, txt=f"Total Cost: ${total_cost:.2f}", ln=True)
 
     filename = f"invoice_order_{order.id}.pdf"
