@@ -41,7 +41,7 @@ def test_get_toppings(client):
 
 
 def test_get_orders(client):
-    # Make sure the user exists in the database and has orders
+
     user_id = 1
     response = client.get(f"/orders/{user_id}")
     assert response.status_code == 200
@@ -69,7 +69,7 @@ def test_rate_pizzeria(client):
 
 
 def test_update_user(client):
-    # Make sure the user exists in the database
+
     user_id = 1
     response = client.put(
         f"/update_user/{user_id}",
@@ -86,15 +86,22 @@ def test_update_user(client):
     assert data["telephone_number"] == "9998887777"
 
 
+import uuid
+
+
 def test_register_valid_data(client):
+    unique_id = uuid.uuid4().hex[:8]
+    random_username = f"user_{unique_id}"
+    random_email = f"{unique_id}@example.com"
+
     response = client.post(
         "/register",
         json={
-            "username": "new_user2",
-            "email": "new_use2r@example.com",
+            "username": random_username,
+            "email": random_email,
             "password": "password1223",
-            "name": "New2",
-            "surname": "Use2r",
+            "name": "New",
+            "surname": "User",
             "telephone_number": "2551234567",
         },
     )
@@ -152,9 +159,7 @@ def test_create_order_missing_data(client):
         "/order",
         json={
             "user_id": 1,
-            "items": [
-                {"pizza_id": 1, "topping_ids": [1]}
-            ],  # Missing 'location' and 'delivery_time'
+            "items": [{"pizza_id": 1, "topping_ids": [1]}],
         },
     )
     assert response.status_code == 400

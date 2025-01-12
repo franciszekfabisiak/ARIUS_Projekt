@@ -25,12 +25,6 @@ from fpdf import FPDF
 import os
 
 
-from fpdf import FPDF
-
-
-from fpdf import FPDF
-
-
 def generate_invoice_pdf(order, customer, pizzas):
     pdf = FPDF()
     pdf.add_page()
@@ -264,17 +258,46 @@ def seed_data():
         pizzas = [
             Pizza(
                 name="Margherita",
-                details="yummers1",
+                details="A timeless classic with fresh mozzarella, tangy tomato sauce, and fragrant basil leaves.",
                 price=7.99,
                 image_path="static/pizzas/margherita.jpg",
             ),
             Pizza(
                 name="Pepperoni",
-                details="yummers2",
+                details="A savory favorite topped with spicy pepperoni slices and melted mozzarella cheese.",
                 price=8.99,
                 image_path="static/pizzas/pepperoni.jpg",
             ),
-            Pizza(name="Veggie", details="yummers3", price=9.99),
+            Pizza(
+                name="Capriciosa",
+                details="A delicious pizza with mushrooms, ham, and mozzarella.",
+                price=10.99,
+                image_path="static/pizzas/capriciosa.png",
+            ),
+            Pizza(
+                name="Hawajska",
+                details="Classic Hawaiian pizza with ham and pineapple.",
+                price=9.49,
+                image_path="static/pizzas/hawajska.png",
+            ),
+            Pizza(
+                name="Romana",
+                details="A savory pizza with anchovies, capers, and olives.",
+                price=11.49,
+                image_path="static/pizzas/romana.png",
+            ),
+            Pizza(
+                name="Stagioni",
+                details="Four seasons pizza with artichokes, mushrooms, ham, and olives.",
+                price=12.99,
+                image_path="static/pizzas/stagioni.png",
+            ),
+            Pizza(
+                name="Vege",
+                details="A vegetable-packed pizza with peppers, onions, and olives.",
+                price=10.49,
+                image_path="static/pizzas/vege.png",
+            ),
         ]
 
         toppings = [
@@ -349,7 +372,7 @@ def register():
 
         return jsonify({"message": "User created successfully"}), 201
     except Exception as e:
-        # Improved error logging for debugging
+
         app.logger.error(f"Error during registration: {str(e)}")
         return jsonify({"message": "Registration failed", "error": str(e)}), 500
 
@@ -423,14 +446,13 @@ def create_order():
             except ValueError:
                 return jsonify({"message": "Invalid delivery time format"}), 400
 
-        # Create the order
         order = Order(
             user_id=data["user_id"],
             location=data["location"],
             delivery_time=delivery_time,
         )
         db.session.add(order)
-        db.session.commit()  # Commit here to assign the order ID
+        db.session.commit()
 
         # Add order items with toppings
         for item in data["items"]:
@@ -445,21 +467,19 @@ def create_order():
 
         db.session.commit()
 
-        # Retrieve the customer and order details for email and PDF
         customer = db.session.get(User, order.user_id)
         pizzas = []
         for order_item in order.items:
-            pizza = db.session.get(Pizza, order_item.pizza_id)  # Fetch pizza details
+            pizza = db.session.get(Pizza, order_item.pizza_id)
             toppings = [topping.name for topping in order_item.toppings]
             pizzas.append(
                 {
                     "name": pizza.name,
                     "toppings": toppings,
-                    "price": pizza.price,  # Add the pizza price
+                    "price": pizza.price,
                 }
             )
 
-        # Generate invoice PDF with a unique filename using order ID
         pdf_path = generate_invoice_pdf(order, customer, pizzas)
 
         # Prepare the email content using the dynamic template
