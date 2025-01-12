@@ -332,8 +332,18 @@ def create_order():
         return jsonify({"message": "Invalid input"}), 400
 
     try:
-        # Parse the delivery time
-        delivery_time = datetime.strptime(data["delivery_time"], "%Y-%m-%d %H:%M:%S")
+        # Parse the delivery time with varying formats
+        delivery_time_str = data["delivery_time"]
+        delivery_time = None
+        try:
+            # Attempt to parse full datetime format
+            delivery_time = datetime.strptime(delivery_time_str, "%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            # If no seconds provided, default to :00
+            try:
+                delivery_time = datetime.strptime(delivery_time_str, "%Y-%m-%d %H:%M")
+            except ValueError:
+                return jsonify({"message": "Invalid delivery time format"}), 400
 
         # Create the order
         order = Order(
