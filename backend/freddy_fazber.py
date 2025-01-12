@@ -69,10 +69,10 @@ def generate_invoice_pdf(order, customer, pizzas):
             pdf.cell(200, 8, txt="    No toppings", ln=True)
             pdf.cell(200, 10, txt=f"    Subtotal: ${base_price:.2f}", ln=True)
 
-        pdf.ln(5)  # Add some space between pizza items
+        pdf.ln(5)
 
     pdf.ln(5)
-    pdf.set_font("Arial", "B", size=12)  # Bold font for total
+    pdf.set_font("Arial", "B", size=12)
     pdf.cell(200, 10, txt=f"Total Cost: ${total_cost:.2f}", ln=True)
 
     filename = f"invoice_order_{order.id}.pdf"
@@ -151,7 +151,6 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db = SQLAlchemy(app)
 
 
-# Models
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), nullable=False, unique=True)
@@ -186,11 +185,9 @@ class Order(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
-    # New fields for location and delivery time
-    location = db.Column(db.String(255), nullable=False)  # Store the delivery location
-    delivery_time = db.Column(db.DateTime, nullable=False)  # Store the delivery time
+    location = db.Column(db.String(255), nullable=False)
+    delivery_time = db.Column(db.DateTime, nullable=False)
 
-    # Add the relationship to OrderItem
     items = db.relationship("OrderItem", backref="order", lazy=True)
 
 
@@ -218,11 +215,10 @@ class Rating(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     order_id = db.Column(db.Integer, db.ForeignKey("order.id"), nullable=False)
     rating = db.Column(db.Integer, nullable=False)
-    comment = db.Column(db.Text, nullable=True)  # Optional comment field
+    comment = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
 
-# Seed Data
 def seed_data():
     if not User.query.first():
         hashed_password1 = generate_password_hash("password123", method="pbkdf2:sha256")
@@ -233,26 +229,26 @@ def seed_data():
             username="john_doe",
             email="freddyfivebearurur@gmail.com",
             password=hashed_password1,
-            name="John",  # Add first name
-            surname="Doe",  # Add last name
-            telephone_number="1234567890",  # Add telephone number
+            name="John",
+            surname="Doe",
+            telephone_number="1234567890",
         )
 
         user2 = User(
             username="jane_doe",
             email="jane_doe@example.com",
             password=hashed_password2,
-            name="Jane",  # Add first name
-            surname="Doe",  # Add last name
-            telephone_number="0987654321",  # Add telephone number
+            name="Jane",
+            surname="Doe",
+            telephone_number="0987654321",
         )
         user3 = User(
             username="1",
             email="1@example.com",
             password=hashed_password3,
-            name="1",  # Add first name
-            surname="1",  # Add last name
-            telephone_number="111111111",  # Add telephone number
+            name="1",
+            surname="1",
+            telephone_number="111111111",
         )
 
         pizzas = [
@@ -358,7 +354,6 @@ def register():
         # Hash the password
         hashed_password = generate_password_hash(password, method="pbkdf2:sha256")
 
-        # Create the new user
         new_user = User(
             username=username,
             email=email,
@@ -459,7 +454,6 @@ def create_order():
             order_item = OrderItem(order_id=order.id, pizza_id=item["pizza_id"])
             db.session.add(order_item)
 
-            # Associate toppings directly using the many-to-many relationship
             topping_ids = item.get("topping_ids", [])
             if topping_ids:
                 toppings = Topping.query.filter(Topping.id.in_(topping_ids)).all()
@@ -482,7 +476,6 @@ def create_order():
 
         pdf_path = generate_invoice_pdf(order, customer, pizzas)
 
-        # Prepare the email content using the dynamic template
         with open("email_template.html", "r") as templatefile:
             template_content = templatefile.read()
 
@@ -515,7 +508,7 @@ def create_order():
 
 @app.route("/orders/<int:user_id>", methods=["GET"])
 def get_orders(user_id):
-    # Query orders for the specified user
+
     orders = Order.query.filter_by(user_id=user_id).all()
     response = []
 
@@ -526,10 +519,8 @@ def get_orders(user_id):
         order_data = {
             "order_id": order.id,
             "created_at": order.created_at.strftime("%Y-%m-%d %H:%M:%S"),
-            "location": order.location,  # Include delivery location
-            "delivery_time": order.delivery_time.strftime(
-                "%Y-%m-%d %H:%M:%S"
-            ),  # Include delivery time
+            "location": order.location,
+            "delivery_time": order.delivery_time.strftime("%Y-%m-%d %H:%M:%S"),
             "items": [],
         }
 
@@ -542,10 +533,8 @@ def get_orders(user_id):
                 )
                 continue
 
-            # Retrieve all toppings for the current order item
             toppings = [topping.name for topping in item.toppings]
 
-            # Append the pizza and toppings info to the order's items list
             order_data["items"].append(
                 {
                     "pizza": pizza.name,
@@ -574,20 +563,15 @@ def rate_pizzeria():
         return jsonify({"message": "Invalid order for this user"}), 400
 
     try:
-        # Include the optional comment field
+
         rating = Rating(
             user_id=data["user_id"],
             order_id=data["order_id"],
             rating=data["rating"],
-            comment=data.get("comment"),  # Use .get() to handle optional field
+            comment=data.get("comment"),
         )
         db.session.add(rating)
         db.session.commit()
-
-        # Print the received rating data into the console for debugging purposes
-        print(
-            f"Received Rating: User ID: {data['user_id']}, Order ID: {data['order_id']}, Rating: {data['rating']}, Comment: {data.get('comment', 'No comment')}"
-        )
 
         return jsonify({"message": "Thank you for your feedback!"}), 201
     except Exception as e:
@@ -596,10 +580,9 @@ def rate_pizzeria():
 
 @app.route("/update_user/<int:id>", methods=["PUT"])
 def update_user(id):
-    # Find the user by ID using get_or_404, which raises a 404 error if not found
+
     user = User.query.get_or_404(id)
 
-    # Get the updated data from the request
     data = request.get_json()
 
     # Update user details (validate the input as necessary)
