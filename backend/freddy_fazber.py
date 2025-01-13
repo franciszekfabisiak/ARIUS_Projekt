@@ -8,7 +8,7 @@ from jinja2 import Template
 from flask import render_template
 import smtplib
 
-# Email details
+
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
@@ -28,7 +28,27 @@ import os
 def generate_invoice_pdf(order, customer, pizzas):
     pdf = FPDF()
     pdf.add_page()
-    pdf.set_font("Arial", size=12)
+
+    # Add the Liberation Sans font from the fonts folder
+    font_path = os.path.join("fonts", "LiberationSans-Regular.ttf")
+    bold_font_path = os.path.join(
+        "fonts", "LiberationSans-Bold.ttf"
+    )  # Path to the bold font (if you have it)
+
+    # Check if the bold font exists and add it
+    if os.path.exists(bold_font_path):
+        pdf.add_font("LiberationSans", "", font_path, uni=True)
+        pdf.add_font(
+            "LiberationSans", "B", bold_font_path, uni=True
+        )  # Add bold font if it exists
+    else:
+        pdf.add_font("LiberationSans", "", font_path, uni=True)
+        pdf.set_font(
+            "Arial", "B", size=12
+        )  # Fallback to Arial bold if bold font isn't available
+
+    pdf.set_font("LiberationSans", size=12)  # Set regular font for the main text
+
     pdf.cell(200, 10, txt=f"Invoice for Order #{order.id}", ln=True, align="C")
     pdf.cell(200, 10, txt=f"Customer: {customer.username}", ln=True)
     pdf.cell(200, 10, txt=f"Delivery Location: {order.location}", ln=True)
@@ -48,7 +68,7 @@ def generate_invoice_pdf(order, customer, pizzas):
         # Calculate and display toppings with their prices
         if pizza["toppings"]:
             toppings_cost = 0
-            pdf.set_font("Arial", size=10)  # Smaller font for toppings
+            pdf.set_font("LiberationSans", size=10)  # Smaller font for toppings
             for topping in pizza["toppings"]:
                 # Fetch topping price from database
                 topping_obj = Topping.query.filter_by(name=topping).first()
@@ -60,7 +80,7 @@ def generate_invoice_pdf(order, customer, pizzas):
                     )
 
             # Display subtotal for this pizza with toppings
-            pdf.set_font("Arial", size=12)
+            pdf.set_font("LiberationSans", size=12)
             item_total = base_price + toppings_cost
             pdf.cell(200, 10, txt=f"    Subtotal: ${item_total:.2f}", ln=True)
             total_cost += item_total
@@ -72,7 +92,7 @@ def generate_invoice_pdf(order, customer, pizzas):
         pdf.ln(5)
 
     pdf.ln(5)
-    pdf.set_font("Arial", "B", size=12)
+    pdf.set_font("LiberationSans", "B", size=12)
     pdf.cell(200, 10, txt=f"Total Cost: ${total_cost:.2f}", ln=True)
 
     filename = f"invoice_order_{order.id}.pdf"
@@ -104,7 +124,7 @@ def send_email_async_with_invoice(order_details, recipient_email, pdf_path):
         </body>
         </html>
         """
-        msg.attach(MIMEText(html_content, "html"))
+        msg.attach(MIMEText(html_content, "html", _charset="utf-8"))
 
         # Attach the logo image
         logo_path = "static/pizzas/logo/freddy_logo.png"
@@ -146,8 +166,10 @@ app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 
 # Configure Database
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///pizzeria.sqlite"
+app.config["JSON_AS_ASCII"] = False
+app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///pizzeria.sqlite?charset=utf8"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
 db = SQLAlchemy(app)
 
 
@@ -415,9 +437,19 @@ def get_toppings():
     )
 
 
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+
+
 @app.route("/order", methods=["POST"])
 def create_order():
     data = request.json
+
+    # Log the received JSON data
+    logging.info("Received order data: %s", data)
+
     if (
         not data
         or "user_id" not in data
@@ -547,23 +579,36 @@ def get_orders(user_id):
     return jsonify(response)
 
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
 @app.route("/rate", methods=["POST"])
 def rate_pizzeria():
     data = request.json
+
+    # Check for missing or invalid input
     if (
         not data
         or "user_id" not in data
         or "order_id" not in data
         or "rating" not in data
     ):
+        logger.error("Invalid input: %s", data)  # Log the invalid input
         return jsonify({"message": "Invalid input"}), 400
 
+    # Check if the order exists and is valid for the given user
     order = Order.query.filter_by(id=data["order_id"], user_id=data["user_id"]).first()
     if not order:
+        logger.error(
+            "Invalid order for user_id: %s and order_id: %s",
+            data["user_id"],
+            data["order_id"],
+        )  # Log invalid order
         return jsonify({"message": "Invalid order for this user"}), 400
 
     try:
-
+        # Create and store the rating
         rating = Rating(
             user_id=data["user_id"],
             order_id=data["order_id"],
@@ -573,8 +618,16 @@ def rate_pizzeria():
         db.session.add(rating)
         db.session.commit()
 
+        logger.info(
+            "Rating submitted successfully: user_id=%s, order_id=%s, rating=%d",
+            data["user_id"],
+            data["order_id"],
+            data["rating"],
+        )  # Log success
         return jsonify({"message": "Thank you for your feedback!"}), 201
+
     except Exception as e:
+        logger.error("Error submitting rating: %s", str(e))  # Log the exception
         return jsonify({"message": "Rating submission failed", "error": str(e)}), 500
 
 
