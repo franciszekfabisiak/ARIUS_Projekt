@@ -27,27 +27,9 @@ import os
 
 def generate_invoice_pdf(order, customer, pizzas):
     pdf = FPDF()
+
     pdf.add_page()
-
-    # Add the Liberation Sans font from the fonts folder
-    font_path = os.path.join("fonts", "LiberationSans-Regular.ttf")
-    bold_font_path = os.path.join(
-        "fonts", "LiberationSans-Bold.ttf"
-    )  # Path to the bold font (if you have it)
-
-    # Check if the bold font exists and add it
-    if os.path.exists(bold_font_path):
-        pdf.add_font("LiberationSans", "", font_path, uni=True)
-        pdf.add_font(
-            "LiberationSans", "B", bold_font_path, uni=True
-        )  # Add bold font if it exists
-    else:
-        pdf.add_font("LiberationSans", "", font_path, uni=True)
-        pdf.set_font(
-            "Arial", "B", size=12
-        )  # Fallback to Arial bold if bold font isn't available
-
-    pdf.set_font("LiberationSans", size=12)  # Set regular font for the main text
+    pdf.set_font("Arial", size=12)  # Use default font (Arial)
 
     pdf.cell(200, 10, txt=f"Invoice for Order #{order.id}", ln=True, align="C")
     pdf.cell(200, 10, txt=f"Customer: {customer.username}", ln=True)
@@ -68,7 +50,7 @@ def generate_invoice_pdf(order, customer, pizzas):
         # Calculate and display toppings with their prices
         if pizza["toppings"]:
             toppings_cost = 0
-            pdf.set_font("LiberationSans", size=10)  # Smaller font for toppings
+            pdf.set_font("Arial", size=10)  # Smaller font for toppings
             for topping in pizza["toppings"]:
                 # Fetch topping price from database
                 topping_obj = Topping.query.filter_by(name=topping).first()
@@ -80,7 +62,7 @@ def generate_invoice_pdf(order, customer, pizzas):
                     )
 
             # Display subtotal for this pizza with toppings
-            pdf.set_font("LiberationSans", size=12)
+            pdf.set_font("Arial", size=12)
             item_total = base_price + toppings_cost
             pdf.cell(200, 10, txt=f"    Subtotal: ${item_total:.2f}", ln=True)
             total_cost += item_total
@@ -89,10 +71,10 @@ def generate_invoice_pdf(order, customer, pizzas):
             pdf.cell(200, 8, txt="    No toppings", ln=True)
             pdf.cell(200, 10, txt=f"    Subtotal: ${base_price:.2f}", ln=True)
 
-        pdf.ln(5)
+        pdf.ln(5)  # Space between pizza items
 
-    pdf.ln(5)
-    pdf.set_font("LiberationSans", "B", size=12)
+    pdf.ln(5)  # Space before total
+    pdf.set_font("Arial", "B", size=12)  # Bold font for total
     pdf.cell(200, 10, txt=f"Total Cost: ${total_cost:.2f}", ln=True)
 
     filename = f"invoice_order_{order.id}.pdf"
@@ -506,22 +488,27 @@ def create_order():
                 }
             )
 
-        pdf_path = generate_invoice_pdf(order, customer, pizzas)
+        # Attempt to generate the invoice and send the email with the PDF attachment
+        try:
+            pdf_path = generate_invoice_pdf(order, customer, pizzas)
 
-        with open("email_template.html", "r") as templatefile:
-            template_content = templatefile.read()
+            with open("email_template.html", "r") as templatefile:
+                template_content = templatefile.read()
 
-        # Render the email template with order details
-        template = Template(template_content)
-        email_content = template.render(
-            customer_name=customer.username,
-            pizzas=pizzas,
-            delivery_time=order.delivery_time,
-            location=order.location,
-        )
+            # Render the email template with order details
+            template = Template(template_content)
+            email_content = template.render(
+                customer_name=customer.username,
+                pizzas=pizzas,
+                delivery_time=order.delivery_time,
+                location=order.location,
+            )
 
-        # Send the email asynchronously with the PDF attachment
-        send_email_async_with_invoice(email_content, customer.email, pdf_path)
+            # Send the email asynchronously with the PDF attachment
+            send_email_async_with_invoice(email_content, customer.email, pdf_path)
+        except Exception as e:
+            logging.error("Invoice generation or email sending failed: %s", str(e))
+            # If invoice generation fails, log the error but do not affect the order creation process
 
         return (
             jsonify(
