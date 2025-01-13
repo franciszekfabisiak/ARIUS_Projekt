@@ -1,17 +1,30 @@
-# Wybierz obraz podstawowy z Pythonem
+# Choose a base image with Python
 FROM python:3.11-slim
 
-# Ustaw katalog roboczy w kontenerze
+# Install necessary build dependencies and tools
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    gcc \
+    musl-dev \
+    libffi-dev \
+    libssl-dev \
+    libaio-dev \
+    libssl-dev \
+    unzip \
+    libaio1 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set the working directory in the container
 WORKDIR /app
 
-# Skopiuj pliki do kontenera
+# Copy all files to the container
 COPY . /app
 
-# Instalacja zależności
-RUN pip install --no-cache-dir -r requirements.txt
+# Install dependencies using pip
+RUN pip install --no-cache-dir --upgrade -r requirements.txt
 
-# Eksponuj port, na którym działa aplikacja
+# Expose the port where the application runs
 EXPOSE 5000
 
-# Polecenie do uruchomienia aplikacji
+# Command to run the application
 CMD ["python", "freddy_fazber.py"]
