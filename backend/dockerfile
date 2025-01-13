@@ -5,23 +5,28 @@ FROM python:3.11-slim
 RUN apt-get update && apt-get install -y \
     build-essential \
     gcc \
-    musl-dev \
     libffi-dev \
     libssl-dev \
     libaio-dev \
-    libssl-dev \
     unzip \
-    libaio1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Set the working directory in the container
 WORKDIR /app
 
-# Copy all files to the container
-COPY . /app
+# Copy the application files
+COPY freddy_fazber.py /app/
+COPY requirements.txt /app/
+COPY email_template.html /app/
 
-# Install dependencies using pip
+# Copy the fonts directory and its contents
+COPY fonts/ /app/fonts/
+
+# Install Python dependencies
 RUN pip install --no-cache-dir --upgrade -r requirements.txt
+
+# Make sure the fonts directory exists and has the correct permissions
+RUN ls -la /app/fonts/
 
 # Expose the port where the application runs
 EXPOSE 5000
