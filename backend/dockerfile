@@ -18,6 +18,7 @@ WORKDIR /app
 COPY freddy_fazber.py /app/
 COPY requirements.txt /app/
 COPY email_template.html /app/
+COPY static/ /app/static/
 
 # Copy the fonts directory and its contents
 COPY fonts/ /app/fonts/
